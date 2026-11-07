@@ -1,0 +1,54 @@
+{
+  "csv": "mock_predictions.csv",
+  "fs": 200.0,
+  "win_len": 40,
+  "step_samples": 10,
+  "filter": "causal (emg_stream.CausalWindowFilter), reset between subjects",
+  "segments": [
+    {
+      "subject": 2,
+      "series": 1,
+      "t_start": 0.0,
+      "t_end": 74.525,
+      "n_windows": 1487
+    },
+    {
+      "subject": 3,
+      "series": 1,
+      "t_start": 74.525,
+      "t_end": 133.3,
+      "n_windows": 1172
+    },
+    {
+      "subject": 9,
+      "series": 1,
+      "t_start": 133.3,
+      "t_end": 198.49,
+      "n_windows": 1300
+    },
+    {
+      "subject": 14,
+      "series": 1,
+      "t_start": 198.49,
+      "t_end": 253.16,
+      "n_windows": 1090
+    },
+    {
+      "subject": 15,
+      "series": 1,
+      "t_start": 253.16,
+      "t_end": 308.445,
+      "n_windows": 1102
+    },
+    {
+      "subject": 35,
+      "series": 1,
+      "t_start": 308.445,
+      "t_end": 360.435,
+      "n_windows": 1036
+    }
+  ],
+  "n_rows": 7187,
+  "labeled_windows": 2083,
+  "accuracy_on_labeled_windows": 0.8113298127700432
+}
