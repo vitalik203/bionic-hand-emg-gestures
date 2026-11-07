@@ -11,6 +11,7 @@ import emg_data
 from emg_data import (
     BOUNDARY_LABEL,
     load_subject,
+    load_subject_series,
     make_windows,
     read_raw_file,
     resample_uniform,
@@ -109,6 +110,18 @@ def test_load_subject_concatenates_series_with_boundary(tmp_path: Path) -> None:
     s, l = load_subject(7, data_dir=tmp_path, fs=1000.0)
     assert s.shape == (5 + 1 + 3, 8) and s.dtype == np.float32
     np.testing.assert_array_equal(l, [1, 1, 1, 1, 1, BOUNDARY_LABEL, 2, 2, 2])
+
+
+def test_load_subject_series_keeps_series_apart(tmp_path: Path) -> None:
+    d = tmp_path / "07"
+    d.mkdir()
+    _write_uci(d / "2_raw_data_b.txt", range(1, 4), [2, 2, 2])
+    _write_uci(d / "1_raw_data_a.txt", range(1, 6), [1, 1, 1, 1, 1])
+    series = load_subject_series(7, data_dir=tmp_path, fs=1000.0)
+    assert [s.shape for s, _ in series] == [(5, 8), (3, 8)]
+    np.testing.assert_array_equal(series[0][1], [1] * 5)
+    np.testing.assert_array_equal(series[1][1], [2] * 3)
+    assert all(s.dtype == np.float32 for s, _ in series)
 
 
 def test_load_subject_missing_raises(tmp_path: Path) -> None:
