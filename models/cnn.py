@@ -34,6 +34,9 @@ class CNNConfig:
         conv_channels: кількість фільтрів у кожному згортковому блоці (2–3 блоки).
         kernel_size: ширина ядра згортки у відліках (непарна).
         dropout: частка нейронів, що вимикаються під час навчання перед повнозв'язним шаром.
+        pooling: ``"flatten"`` — розгортання карт ознак (модель прив'язана до ``win_len``);
+            ``"gap"`` — global average pooling, середнє по часу для кожного фільтра
+            (та сама модель приймає вікна будь-якої довжини ≥ 2^кількість_блоків).
     """
 
     n_channels: int = 8
@@ -42,6 +45,7 @@ class CNNConfig:
     conv_channels: Tuple[int, ...] = (32, 64, 64)
     kernel_size: int = 5
     dropout: float = 0.3
+    pooling: str = "flatten"
 
     def flat_len(self) -> int:
         """Довжина по часу після всіх MaxPool (кожен ділить на 2 з округленням вниз)."""
@@ -52,7 +56,7 @@ class CNNConfig:
 
 
 class EMGCNN(nn.Module):
-    """[Conv1d → ReLU → MaxPool1d] × (2–3) → Flatten → Dropout → Linear."""
+    """[Conv1d → ReLU → MaxPool1d] × (2–3) → (Flatten | GlobalAvgPool) → Dropout → Linear."""
 
     def __init__(self, cfg: CNNConfig = CNNConfig()) -> None:
         """Args:
@@ -66,6 +70,8 @@ class EMGCNN(nn.Module):
             raise ValueError("потрібно 2–3 згорткові блоки")
         if cfg.kernel_size % 2 == 0:
             raise ValueError("kernel_size має бути непарним (щоб padding зберігав довжину)")
+        if cfg.pooling not in ("flatten", "gap"):
+            raise ValueError(f"невідомий pooling: {cfg.pooling}")
         if cfg.flat_len() < 1:
             raise ValueError(f"вікно {cfg.win_len} закоротке для {len(cfg.conv_channels)} MaxPool")
         self.cfg = cfg
@@ -79,11 +85,11 @@ class EMGCNN(nn.Module):
             ]
             in_ch = out_ch
         self.features = nn.Sequential(*layers)
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Dropout(cfg.dropout),
-            nn.Linear(in_ch * cfg.flat_len(), cfg.n_classes),
-        )
+        if cfg.pooling == "gap":
+            head = [nn.AdaptiveAvgPool1d(1), nn.Flatten(), nn.Dropout(cfg.dropout), nn.Linear(in_ch, cfg.n_classes)]
+        else:
+            head = [nn.Flatten(), nn.Dropout(cfg.dropout), nn.Linear(in_ch * cfg.flat_len(), cfg.n_classes)]
+        self.classifier = nn.Sequential(*head)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Args:

@@ -25,8 +25,34 @@ def test_parameter_count_default() -> None:
     assert count_parameters(EMGCNN(CNNConfig(win_len=40))) == expected == 34086
 
 
+def test_gap_model_accepts_any_window_length() -> None:
+    model = EMGCNN(CNNConfig(win_len=40, pooling="gap")).eval()
+    for length in (30, 40, 60, 200):
+        assert model(torch.zeros(2, 8, length)).shape == (2, 6)
+    # згортки ті самі, повнозв'язний шар лише 64→6
+    expected = (8 * 32 * 5 + 32) + (32 * 64 * 5 + 64) + (64 * 64 * 5 + 64) + (64 * 6 + 6)
+    assert count_parameters(model) == expected == 32550
+
+
+def test_flatten_model_rejects_other_length() -> None:
+    model = EMGCNN(CNNConfig(win_len=40))
+    with pytest.raises(RuntimeError):
+        model(torch.zeros(2, 8, 60))
+
+
+def test_old_checkpoint_without_pooling_loads_as_flatten(tmp_path: Path) -> None:
+    model = EMGCNN(CNNConfig(win_len=40))
+    path = tmp_path / "old.pt"
+    save_checkpoint(path, model, [0.0] * 8, [1.0] * 8, {i: i + 1 for i in range(6)})
+    ckpt = torch.load(path, weights_only=True)
+    del ckpt["config"]["pooling"]  # як у чекпоінтах до появи параметра
+    torch.save(ckpt, path)
+    loaded, _ = load_cnn(path)
+    assert loaded.cfg.pooling == "flatten"
+
+
 @pytest.mark.parametrize(
-    "kw", [{"conv_channels": (32,)}, {"conv_channels": (8, 8, 8, 8)}, {"kernel_size": 4}, {"win_len": 4}]
+    "kw", [{"pooling": "max"}, {"conv_channels": (32,)}, {"conv_channels": (8, 8, 8, 8)}, {"kernel_size": 4}, {"win_len": 4}]
 )
 def test_invalid_config(kw) -> None:
     with pytest.raises(ValueError):
