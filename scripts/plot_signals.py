@@ -29,18 +29,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from emg_data import DEFAULT_DATA_DIR, read_raw_file, subject_files  # noqa: E402
+from emg_data import DEFAULT_DATA_DIR, UCI_CLASS_NAMES, read_raw_file, subject_files  # noqa: E402
 
-CLASS_NAMES: Dict[int, str] = {
-    0: "без розмітки",
-    1: "спокій",
-    2: "кулак",
-    3: "згинання зап'ястя",
-    4: "розгинання зап'ястя",
-    5: "радіальне відведення",
-    6: "ульнарне відведення",
-    7: "розкрита долоня",
-}
+CLASS_NAMES: Dict[int, str] = UCI_CLASS_NAMES
 GESTURES = (1, 2, 3, 4, 5, 6)
 ALL_CLASSES = tuple(range(8))
 SCALE = 1e5  # значення у файлі × 1e5 → цілі від −128 до 127

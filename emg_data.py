@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List, Tuple, Union
+from typing import Dict, Iterable, List, Tuple, Union
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
@@ -33,6 +33,17 @@ UCI_N_CHANNELS: int = 8
 UCI_FS_HZ: float = 1000.0
 #: Службова мітка для відліків поза записом (пропуски, межі серій).
 BOUNDARY_LABEL: int = -1
+#: Назви класів за README датасету.
+UCI_CLASS_NAMES: Dict[int, str] = {
+    0: "без розмітки",
+    1: "спокій",
+    2: "кулак",
+    3: "згинання зап'ястя",
+    4: "розгинання зап'ястя",
+    5: "радіальне відведення",
+    6: "ульнарне відведення",
+    7: "розкрита долоня",
+}
 #: Тека з розпакованим архівом датасету.
 DEFAULT_DATA_DIR: Path = Path(__file__).resolve().parent / "data" / "EMG_data_for_gestures-master"
 
@@ -168,15 +179,43 @@ def load_subject(
         ``(signals [T, 8] float32, labels [T] int64)``.
     """
     sig_parts, lab_parts = [], []
-    for i, path in enumerate(subject_files(subject_id, data_dir)):
-        t, s, l = read_raw_file(path)
-        s_u, l_u = resample_uniform(t, s, l, fs=fs, max_gap_ms=max_gap_ms)
+    for i, (s_u, l_u) in enumerate(load_subject_series(subject_id, data_dir, fs, max_gap_ms)):
         if i > 0:
             sig_parts.append(np.zeros((1, s_u.shape[1]), dtype=np.float32))
             lab_parts.append(np.array([BOUNDARY_LABEL], dtype=np.int64))
-        sig_parts.append(s_u.astype(np.float32, copy=False))
+        sig_parts.append(s_u)
         lab_parts.append(l_u)
     return np.concatenate(sig_parts, axis=0), np.concatenate(lab_parts)
+
+
+def load_subject_series(
+    subject_id: int,
+    data_dir: PathLike = DEFAULT_DATA_DIR,
+    fs: float = UCI_FS_HZ,
+    max_gap_ms: float = 100.0,
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """Завантажує серії піддослідного окремо, кожну на рівномірній сітці ``fs``.
+
+    На відміну від :func:`load_subject`, серії не склеюються. Усередині серії
+    довгі пропуски все одно позначаються :data:`BOUNDARY_LABEL` (див.
+    :func:`resample_uniform`), тож фільтрувати серію слід через
+    :func:`emg_preprocess.preprocess_segments`.
+
+    Args:
+        subject_id: номер піддослідного.
+        data_dir: тека датасету.
+        fs: частота рівномірної сітки, Гц.
+        max_gap_ms: див. :func:`resample_uniform`.
+
+    Returns:
+        Список ``(signals [T, 8] float32, labels [T] int64)`` у порядку серій.
+    """
+    series = []
+    for path in subject_files(subject_id, data_dir):
+        t, s, l = read_raw_file(path)
+        s_u, l_u = resample_uniform(t, s, l, fs=fs, max_gap_ms=max_gap_ms)
+        series.append((s_u.astype(np.float32, copy=False), l_u))
+    return series
 
 
 def make_windows(
